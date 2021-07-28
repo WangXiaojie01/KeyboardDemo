@@ -7,6 +7,7 @@ public class ExampleClass : MonoBehaviour
     public string stringToEdit = "Hello World";
     private TouchScreenKeyboard keyboard;
     private string rectStr = "(0, 0, 0, 0)";
+    private string androidData = "";
     // Start is called before the first frame update
     void Start()
     {
@@ -16,6 +17,13 @@ public class ExampleClass : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        Rect rect = GetKeyboardRec();
+        rectStr = "(" + rect.x + ", " + rect.y + ", " + rect.width + ", " + rect.height + ")";
+#if UNITY_ANDROID
+        rectStr = rectStr + androidData;
+#endif
+        /*
+#if UNITY_IOS
         if (TouchScreenKeyboard.visible)
         {
             Rect rect = TouchScreenKeyboard.area;
@@ -25,7 +33,98 @@ public class ExampleClass : MonoBehaviour
         {
             rectStr = "(0, 0, 0, 0)";
         }
+#elif UNITY_ANDROID
+
+        rectStr = "(0, " + GetKeyboardHeight() + ", 0, 0)";
+#else
+        rectStr = "(0, 0, 0, 0)";
+#endif*/
     }
+
+    public Rect GetKeyboardRec()
+    {
+#if UNITY_ANDROID
+        using (var unityClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+        {
+            var unityPlayer = unityClass.GetStatic<AndroidJavaObject>("currentActivity").Get<AndroidJavaObject>("mUnityPlayer");
+            var view = unityPlayer.Call<AndroidJavaObject>("getView");
+            var dialog = unityPlayer.Get<AndroidJavaObject>("b");
+
+            if (view == null || dialog == null)
+            {
+                if (null == view)
+                {
+                    androidData = androidData + "view is null; ";
+                }
+                if (null == dialog)
+                {
+                    androidData = androidData + "dialog is null; ";
+                }
+                return new Rect(0, 0, 0, 0);
+            }
+
+            var decorView = dialog.Call<AndroidJavaObject>("getWindow").Call<AndroidJavaObject>("getDecorView");
+            if (null == decorView)
+            {
+                androidData = androidData + "decorView is null; ";
+                return new Rect(0, 0, 0, 0);
+            }
+
+            int decorHeight = decorView.Call<int>("getHeight");
+            int decorBottom = decorView.Call<int>("getBottom");
+            int decorWidth = decorView.Call<int>("getWidth");
+
+            androidData = androidData + "decor height is " + decorHeight + "; bottom is " + decorBottom + "; width is " + decorWidth +"; ";
+
+            using (var rect = new AndroidJavaObject("android.graphics.Rect"))
+            {
+                view.Call("getWindowVisibleDisplayFrame", rect);
+                int rectBottom = rect.Get<int>("bottom");
+                androidData = androidData + "rectBootom is " + rectBottom + "; ";
+
+                Rect keyboardRect = new Rect();
+                keyboardRect.x = 0;
+                keyboardRect.y = decorHeight - rectBottom > 0 ? rectBottom : 0;
+                keyboardRect.height = keyboardRect.y > 0 ? (decorBottom - keyboardRect.y) : 0;
+                keyboardRect.width = keyboardRect.y > 0 ? decorWidth : 0;
+                return keyboardRect;
+            }
+        }
+        return new Rect(0, 0, 0, 0);
+#elif UNITY_IOS
+        if (TouchScreenKeyboard.visible)
+        {
+            return TouchScreenKeyboard.area;
+        }
+        else
+        {
+            return new Rect(0, 0, 0, 0);
+        }
+#else
+        return new Rect(0, 0, 0, 0);
+#endif
+    }
+
+        /*
+            var decorHeight = 0;
+
+        if (true)//includeInput
+        {
+            var decorView = dialog.Call<AndroidJavaObject>("getWindow").Call<AndroidJavaObject>("getDecorView");
+
+            if (decorView != null)
+                decorHeight = decorView.Call<int>("getHeight");
+        }
+
+        using (var rect = new AndroidJavaObject("android.graphics.Rect"))
+        {
+            view.Call("getWindowVisibleDisplayFrame", rect);
+            return Display.main.systemHeight - rect.Call<int>("height") + decorHeight;
+        }
+    }
+#endif
+        return new Rect(0, 0, 0, 0);
+    }*/
 
     void OnGUI()
     {
